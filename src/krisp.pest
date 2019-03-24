@@ -1,0 +1,50 @@
+program = _{ SOI ~ sexpr* ~ EOI }
+single_expr = _{ SOI ~ sexpr ~ EOI }
+
+sexpr = { atom | list | quoted_list | progn_list }
+
+atom = { literal | ident }
+list = { "(" ~ sexpr* ~ ")" }
+quoted_list = { "[" ~ sexpr* ~ "]" }
+progn_list = { "{" ~ sexpr* ~ "}" }
+
+literal = { float | int | string }
+ident = @{ ident_start_char ~ ident_char* }
+
+float = @{
+    sign?
+    ~ (
+        ( (uint ~ "." ~ uint)
+            | ("." ~ uint)
+            | (uint ~ ".") )
+        ~ exp? )
+    | (uint ~ exp)
+}
+int = @{ sign? ~ uint }
+string = { squoted_ident | dquoted_string }
+
+ident_char = { !("(" | ")" | "[" | "]" | "{" | "}" | WHITESPACE) ~ ANY }
+ident_start_char = { !(ASCII_DIGIT) ~ ident_char }
+
+sign = { "+" | "-" }
+uint = @{ ASCII_DIGIT+ }
+exp = @{ ^"e" ~ int }
+
+squoted_ident = @{ "'" ~ ident }
+dquoted_string = ${ "\"" ~ stringchar* ~ "\"" }
+stringchar = {
+    unescaped_char
+    | classic_escape
+    | ascii_escape
+    | unicode4_escape
+    | unicode8_escape
+}
+
+unescaped_char = { !("\"" | "\\") ~ ANY }
+classic_escape = { "\\" ~ ("\"" | "\\" | "b" | "f" | "n" | "r" | "t" ) }
+ascii_escape = { "\\" ~ (^"x" ~ ASCII_HEX_DIGIT{2}) }
+unicode4_escape = { "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4}) }
+unicode8_escape = { "\\" ~ ("U" ~ ASCII_HEX_DIGIT{8}) }
+
+WHITESPACE = _{ " " | NEWLINE }
+COMMENT = _{ ";" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
