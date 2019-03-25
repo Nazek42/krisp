@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use bacon_rajan_cc::Cc;
 
 use rustyline::Editor;
 use rustyline::error::ReadlineError;
@@ -12,7 +12,7 @@ pub fn repl(interpreter: &mut Interpreter) {
         let readline = rl.readline("K> ");
         match readline {
             Ok(line) => {
-                let result = interpreter.eval(Rc::new(parse_expr(line).unwrap()));
+                let result = interpreter.eval(Cc::new(parse_expr(line).unwrap()));
                 match result {
                     Ok(value) => {
                         println!("{}", value);

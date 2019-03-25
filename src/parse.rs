@@ -1,5 +1,5 @@
 use std::fs;
-use std::rc::Rc;
+use bacon_rajan_cc::Cc;
 use std::iter::once;
 use std::char::from_u32;
 
@@ -51,16 +51,16 @@ impl <'a> From<Pair<'a, Rule>> for SExpr {
                     _ => unreachable!()
                 }
             })),
-            
-            Rule::list => SExpr::List(pair.into_inner().map(SExpr::from).map(Rc::new).collect()),
+
+            Rule::list => SExpr::List(pair.into_inner().map(SExpr::from).map(Cc::new).collect()),
 
             Rule::quoted_list => SExpr::List(once(SExpr::ident("'".to_owned()))
                                                 .chain(pair.into_inner().map(SExpr::from))
-                                                .map(Rc::new).collect()),
+                                                .map(Cc::new).collect()),
 
             Rule::progn_list => SExpr::List(once(SExpr::ident("progn".to_owned()))
                                                 .chain(pair.into_inner().map(SExpr::from))
-                                                .map(Rc::new).collect()),
+                                                .map(Cc::new).collect()),
             _ => unreachable!()
         }
     }
