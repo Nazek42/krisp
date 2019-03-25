@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use bacon_rajan_cc::Cc;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Rem, Shl, Shr, Sub};
 use std::iter::once;
 
@@ -8,11 +8,11 @@ use crate::interpreter::Namespace;
 macro_rules! arithmetic {
     ($($method:ident => $kname:expr),+) => {
         $(
-        fn $method(args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
+        fn $method(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
             wrong_args_check!($kname, args, 2);
-            let a = Rc::clone(&args[0]);
-            let b = Rc::clone(&args[1]);
-            Ok(Rc::new(match (&*a, &*b) {
+            let a = Cc::clone(&args[0]);
+            let b = Cc::clone(&args[1]);
+            Ok(Cc::new(match (&*a, &*b) {
                 (SExpr::Atom(Atom::Native(na)), SExpr::Atom(Atom::Native(nb)))
                     => SExpr::Atom(Atom::Native({
                         use NativeAtom::{Int, Float};
@@ -35,7 +35,7 @@ macro_rules! namespace {
     ($nsname:ident; $($func:ident => $kname:expr),*) => {
         pub fn $nsname() -> Namespace {
             let mut module = Namespace::new();
-            $(module.insert($kname.to_owned(), Rc::new(SExpr::extern_fn(ExternFunction{ func: $func })));)*
+            $(module.insert($kname.to_owned(), Cc::new(SExpr::extern_fn(ExternFunction{ func: $func })));)*
             module
         }
     }
@@ -43,11 +43,11 @@ macro_rules! namespace {
 
 arithmetic!{ add => "+", sub => "-", mul => "*", div => "/", rem => "mod" }
 
-fn eq(args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
+fn eq(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("=", args, 2);
-    let a = Rc::clone(&args[0]);
-    let b = Rc::clone(&args[1]);
-    Ok(Rc::new(match (&*a, &*b) {
+    let a = Cc::clone(&args[0]);
+    let b = Cc::clone(&args[1]);
+    Ok(Cc::new(match (&*a, &*b) {
         (SExpr::Atom(Atom::Native(na)), SExpr::Atom(Atom::Native(nb)))
             => SExpr::Atom(Atom::Native({
                 use NativeAtom::{Int, Float, Str};
@@ -64,41 +64,41 @@ fn eq(args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
     }))
 }
 
-fn head(args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
+fn head(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("head", args, 1);
-    Ok(Rc::clone(&args[0].get_list().ok_or_else(|| format!("head expected list, got {}", args[0]))?[0]))
+    Ok(Cc::clone(&args[0].get_list().ok_or_else(|| format!("head expected list, got {}", args[0]))?[0]))
 }
 
-fn tail(args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
+fn tail(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("tail", args, 1);
-    let result: Vec<_> = (&args[0].get_list().ok_or_else(|| format!("tail expected list, got {}", args[0]))?[1..]).iter().map(Rc::clone).collect();
+    let result: Vec<_> = (&args[0].get_list().ok_or_else(|| format!("tail expected list, got {}", args[0]))?[1..]).iter().map(Cc::clone).collect();
     Ok(if result.len() == 1 {
-        Rc::clone(&result[0])
+        Cc::clone(&result[0])
     } else {
-        Rc::new(SExpr::List(result))
+        Cc::new(SExpr::List(result))
     })
 }
 
-fn cons(args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
+fn cons(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("cons", args, 2);
-    let first = Rc::clone(&args[0]);
-    let rest = Rc::clone(&args[1]);
+    let first = Cc::clone(&args[0]);
+    let rest = Cc::clone(&args[1]);
     if let Some(list) = rest.get_list() {
         let mut new_list: Vec<_> = vec![first];
-        new_list.extend(list.iter().map(Rc::clone));
-        Ok(Rc::new(SExpr::List(new_list)))
+        new_list.extend(list.iter().map(Cc::clone));
+        Ok(Cc::new(SExpr::List(new_list)))
     } else {
-        Ok(Rc::new(SExpr::List(vec![first, rest])))
+        Ok(Cc::new(SExpr::List(vec![first, rest])))
     }
 }
 
-fn len(args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
+fn len(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("len", args, 1);
-    Ok(Rc::new(SExpr::int(args[0].get_list().ok_or_else(|| format!("len expected list, got {}", args[0]))?.len() as i64)))
+    Ok(Cc::new(SExpr::int(args[0].get_list().ok_or_else(|| format!("len expected list, got {}", args[0]))?.len() as i64)))
 }
 
-fn quote(args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
-    Ok(Rc::new(SExpr::list(args)))
+fn quote(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+    Ok(Cc::new(SExpr::list(args)))
 }
 
 namespace! { BUILTINS;

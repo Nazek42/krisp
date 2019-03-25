@@ -6,6 +6,14 @@
 (def! end? (iter) (= 1 (len iter)))
 (def! next (iter) (if (end? iter) [(head iter)] ((tail iter))))
 (def! cons-iter (val iter) [val (thunk iter)])
+
+(def! once (val) [val])
+
+(def! chain (iter1 iter2)
+    (if (end? iter1)
+        [(head iter1) (thunk iter2)]
+        [(head iter1) (thunk (chain (next iter1) iter2))]))
+
 (def! collect (iter)
     (if (end? iter)
         [(head iter)]
@@ -29,10 +37,6 @@
         (let! iter (next iter))
         (let! result (comb result (head iter)))})
     result})
-
-
-(def! foldl (comb init iter)
-    (reduce comb (cons-iter init iter)))
 
 (def! fib-rec (a b) [a (thunk (fib-rec b (+ a b)))])
 (def! fib () (fib-rec 0 1))

@@ -1,18 +1,40 @@
 use std::fmt;
-use std::rc::Rc;
+use bacon_rajan_cc::{Cc, Trace, Tracer};
 
 use crate::interpreter::Namespace;
 
 #[derive(Clone, Debug)]
 pub enum SExpr {
     Atom(Atom),
-    List(Vec<Rc<SExpr>>)
+    List(Vec<Cc<SExpr>>)
+}
+
+impl Trace for SExpr {
+    fn trace(&mut self, tracer: &mut Tracer) {
+        match self {
+            SExpr::Atom(atom) => atom.trace(tracer),
+            SExpr::List(list) => {
+                for item in list.iter_mut() {
+                    tracer(item);
+                }
+            }
+        };
+    }
 }
 
 #[derive(Clone, Debug)]
 pub enum Atom {
     Native(NativeAtom),
-    Extern(Box<ExternObj>)
+    Extern(Box<dyn ExternObj>)
+}
+
+impl Trace for Atom {
+    fn trace(&mut self, tracer: &mut Tracer) {
+        match self {
+            Atom::Native(na) => na.trace(tracer),
+            Atom::Extern(ea) => ea.trace(tracer)
+        };
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -24,6 +46,14 @@ pub enum NativeAtom {
     Function(Function)
 }
 
+impl Trace for NativeAtom {
+    fn trace(&mut self, tracer: &mut Tracer) {
+        if let NativeAtom::Function(Function::Native(nf)) = self {
+            nf.trace(tracer)
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Function {
     Native(NativeFunction),
@@ -33,17 +63,27 @@ pub enum Function {
 #[derive(Clone, Debug)]
 pub struct NativeFunction {
     pub params: Vec<String>,
-    pub body: Rc<SExpr>,
+    pub body: Cc<SExpr>,
     pub captures: Namespace,
+}
+
+impl Trace for NativeFunction {
+    fn trace(&mut self, tracer: &mut Tracer) {
+        tracer(&mut self.body);
+        //self.captures.trace(tracer);
+        for (_, capture) in &mut self.captures.iter_mut() {
+            tracer(capture);
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct ExternFunction {
-    pub func: fn(Vec<Rc<SExpr>>)->Result<Rc<SExpr>, String>,
+    pub func: fn(Vec<Cc<SExpr>>)->Result<Cc<SExpr>, String>,
 }
 
 impl NativeFunction {
-    pub fn try_extract_params(params_raw: Rc<SExpr>) -> Option<Vec<String>> {
+    pub fn try_extract_params(params_raw: Cc<SExpr>) -> Option<Vec<String>> {
         if let Some(params_vec) = params_raw.get_list() {
             let mut params: Vec<String> = vec![];
             for param in params_vec.iter() {
@@ -57,21 +97,21 @@ impl NativeFunction {
         }
     }
 
-    pub fn build(metargs: &[Rc<SExpr>], captures: Namespace) -> Result<NativeFunction, String> {
-        if let Some(params) = NativeFunction::try_extract_params(Rc::clone(&metargs[0])) {
-            let body = Rc::clone(&metargs[1]);
+    pub fn build(metargs: &[Cc<SExpr>], captures: Namespace) -> Result<NativeFunction, String> {
+        if let Some(params) = NativeFunction::try_extract_params(Cc::clone(&metargs[0])) {
+            let body = Cc::clone(&metargs[1]);
             Ok(NativeFunction { params, body, captures })
         } else { Err("need a list of parameters to construct a function".to_owned()) }
     }
 }
 
 impl ExternFunction {
-    pub fn call(&self, args: Vec<Rc<SExpr>>) -> Result<Rc<SExpr>, String> {
+    pub fn call(&self, args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
         (self.func)(args)
     }
 }
 
-pub trait ExternObj: std::fmt::Debug + fmt::Display {
+pub trait ExternObj: std::fmt::Debug + fmt::Display + Trace {
     fn box_clone(&self) -> Box<ExternObj>;
     fn name(&self) -> String;
     fn as_bool(&self) -> bool;
@@ -108,7 +148,7 @@ impl SExpr {
     getter!{get_native_fn => nf: NativeFunction, SExpr::Atom(Atom::Native(NativeAtom::Function(Function::Native(nf))))}
     getter!{get_extern_fn => ef: ExternFunction, SExpr::Atom(Atom::Native(NativeAtom::Function(Function::Extern(ef))))}
     getter!{get_extern_obj => obj: Box<ExternObj>, SExpr::Atom(Atom::Extern(obj))}
-    getter!{get_list => list: Vec<Rc<SExpr>>, SExpr::List(list)}
+    getter!{get_list => list: Vec<Cc<SExpr>>, SExpr::List(list)}
 
     constructor!{int => i: i64, SExpr::Atom(Atom::Native(NativeAtom::Int(i)))}
     constructor!{float => f: f64, SExpr::Atom(Atom::Native(NativeAtom::Float(f)))}
@@ -117,7 +157,7 @@ impl SExpr {
     constructor!{native_fn => nf: NativeFunction, SExpr::Atom(Atom::Native(NativeAtom::Function(Function::Native(nf))))}
     constructor!{extern_fn => ef: ExternFunction, SExpr::Atom(Atom::Native(NativeAtom::Function(Function::Extern(ef))))}
     constructor!{extern_obj => obj: Box<ExternObj>, SExpr::Atom(Atom::Extern(obj))}
-    constructor!{list => list: Vec<Rc<SExpr>>, SExpr::List(list)}
+    constructor!{list => list: Vec<Cc<SExpr>>, SExpr::List(list)}
 
     pub fn null() -> SExpr {
         SExpr::List(vec![])
