@@ -5,7 +5,6 @@ use std::char::from_u32;
 
 use pest::Parser;
 use pest::iterators::Pair;
-use pest::error::Error;
 
 use crate::expr::{SExpr, Atom, NativeAtom};
 

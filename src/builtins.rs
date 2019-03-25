@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use bacon_rajan_cc::Cc;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Rem, Shl, Shr, Sub};
 use std::iter::once;
@@ -92,6 +93,20 @@ fn cons(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     }
 }
 
+fn append(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+    wrong_args_check!("append", args, 2);
+    let first = Cc::clone(&args[0]);
+    if first.get_list().is_none() { return Err("append expects a list as its first argument".to_owned()); }
+    let rest = Cc::clone(&args[1]);
+    if let Some(list) = rest.get_list() {
+        let new_list: Vec<_> = first.get_list().unwrap().iter().chain(list.iter()).map(Cc::clone).collect();
+        Ok(Cc::new(SExpr::List(new_list)))
+    } else {
+        let new_list: Vec<_> = first.get_list().unwrap().iter().chain(once(&rest)).map(Cc::clone).collect();
+        Ok(Cc::new(SExpr::List(new_list)))
+    }
+}
+
 fn len(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("len", args, 1);
     Ok(Cc::new(SExpr::int(args[0].get_list().ok_or_else(|| format!("len expected list, got {}", args[0]))?.len() as i64)))
@@ -111,6 +126,7 @@ namespace! { BUILTINS;
     head => "head",
     tail => "tail",
     cons => "cons",
+    append => "cat",
     len => "len",
     quote => "'"
 }

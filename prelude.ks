@@ -3,9 +3,12 @@
 
 (def! bool (p) (if p 1 0))
 (def! not (p) (if p 0 1))
+
 (def! end? (iter) (= 1 (len iter)))
 (def! next (iter) (if (end? iter) [(head iter)] ((tail iter))))
+
 (def! cons-iter (val iter) [val (thunk iter)])
+(def! cat-iter (iter val) (chain iter (once val)))
 
 (def! once (val) [val])
 
@@ -13,12 +16,6 @@
     (if (end? iter1)
         [(head iter1) (thunk iter2)]
         [(head iter1) (thunk (chain (next iter1) iter2))]))
-
-(def! collect (iter)
-    (if (end? iter)
-        [(head iter)]
-        (with (val cont) iter
-            (cons val (collect (cont))))))
 
 (def! map (f iter)
     (if (end? iter)
@@ -37,6 +34,22 @@
         (let! iter (next iter))
         (let! result (comb result (head iter)))})
     result})
+
+(def! fold (comb init iter)
+    (reduce comb [init (thunk iter)]))
+
+(def! collect (iter)
+    (fold cat [] iter))
+
+(def! filter (pred iter)
+    (next
+        (fold
+            (\ (acc x)
+                (if (pred x)
+                    (cat-iter acc x)
+                    acc))
+            [0]
+            iter)))
 
 (def! fib-rec (a b) [a (thunk (fib-rec b (+ a b)))])
 (def! fib () (fib-rec 0 1))
