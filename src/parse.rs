@@ -53,7 +53,7 @@ impl <'a> From<Pair<'a, Rule>> for SExpr {
 
             Rule::list => SExpr::List(pair.into_inner().map(SExpr::from).map(Cc::new).collect()),
 
-            Rule::quoted_list => SExpr::List(once(SExpr::ident("'".to_owned()))
+            Rule::quoted_list => SExpr::List(once(SExpr::ident("list".to_owned()))
                                                 .chain(pair.into_inner().map(SExpr::from))
                                                 .map(Cc::new).collect()),
 

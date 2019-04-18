@@ -28,6 +28,7 @@ lazy_static! {
         m.insert(r"\", lambda_macro);
         m.insert("while", while_macro);
         m.insert("progn", progn_macro);
+        m.insert("'", quote_macro);
         m
     };
 }
@@ -127,6 +128,11 @@ fn progn_macro(interpreter: &mut Interpreter, args: Vec<Cc<SExpr>>) -> Result<Cc
     Ok(result)
 }
 
+fn quote_macro(interpreter: &mut Interpreter, args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+    wrong_args_check!("'", args, 1);
+    Ok(Cc::clone(&args[0]))
+}
+
 pub struct Interpreter {
     pub scope: NestedScope,
     pub macro_scope: Namespace
@@ -142,7 +148,7 @@ impl Interpreter {
     }
 
     pub fn eval(&mut self, expr_raw: Cc<SExpr>) -> Result<Cc<SExpr>, String> {
-        let expr = self.expand_macros(expr_raw);
+        let expr = self.expand_macros(expr_raw)?;
         match &*expr {
             SExpr::Atom(atom) => Ok(match atom.clone() {
                 Atom::Native(native) => match native {
@@ -206,24 +212,28 @@ impl Interpreter {
         Ok(())
     }
 
-    fn expand_macros(&self, expr: Cc<SExpr>) -> Cc<SExpr> {
+    fn expand_macros(&mut self, expr: Cc<SExpr>) -> Result<Cc<SExpr>, String> {
         if let Some(list) = expr.get_list() {
-            if list.len() == 0 { return Cc::clone(&expr); }
+            if list.len() == 0 { return Ok(Cc::clone(&expr)); }
             if let Some(id) = list[0].get_ident() {
-                if let Some(macro_) = self.macro_scope.get(id) {
+                if let Some(macro_ref) = self.macro_scope.get(id) {
+                    let macro_ = Cc::clone(macro_ref);
                     let macro_ns = macro_.get_native_fn().unwrap();
                     let args: Vec<Cc<SExpr>> = list.iter().skip(1).map(Cc::clone).collect();
                     assert_eq!(macro_ns.params.len(), args.len());
-                    let expanded = Interpreter::substitute(Cc::clone(&macro_ns.body), &macro_ns.params, &args);
-                    self.expand_macros(expanded)
+                    let expanded = self.eval_with(Cc::clone(&macro_ns.body), &macro_ns.params, &args)?;
+                    let substituted = Interpreter::substitute(expanded, &macro_ns.params, &args);
+                    //let expanded = Interpreter::substitute(Cc::clone(&macro_ns.body), &macro_ns.params, &args);
+                    //self.expand_macros(expanded)
+                    Ok(substituted)
                 } else {
-                    Cc::new(SExpr::List(list.iter().map(|sub| self.expand_macros(Cc::clone(sub))).collect()))
+                    Ok(Cc::new(SExpr::List(list.iter().map(|sub| self.expand_macros(Cc::clone(sub))).collect::<Result<Vec<_>,_>>()?)))
                 }
             } else {
-                Cc::new(SExpr::List(list.iter().map(|sub| self.expand_macros(Cc::clone(sub))).collect()))
+                Ok(Cc::new(SExpr::List(list.iter().map(|sub| self.expand_macros(Cc::clone(sub))).collect::<Result<Vec<_>,_>>()?)))
             }
         } else {
-            Cc::clone(&expr)
+            Ok(Cc::clone(&expr))
         }
     }
 

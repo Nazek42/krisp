@@ -9,25 +9,25 @@ use crate::interpreter::Namespace;
 macro_rules! arithmetic {
     ($($method:ident => $kname:expr),+) => {
         $(
-        fn $method(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
-            wrong_args_check!($kname, args, 2);
-            let a = Cc::clone(&args[0]);
-            let b = Cc::clone(&args[1]);
-            Ok(Cc::new(match (&*a, &*b) {
-                (SExpr::Atom(Atom::Native(na)), SExpr::Atom(Atom::Native(nb)))
-                    => SExpr::Atom(Atom::Native({
-                        use NativeAtom::{Int, Float};
-                        match (na, nb) {
-                            (Int(ia),   Int(ib)  ) => Int(ia.$method(ib)),
-                            (Int(ia),   Float(fb)) => Float((*ia as f64).$method(fb)),
-                            (Float(fa), Int(ib)  ) => Float(fa.$method(*ib as f64)),
-                            (Float(fa), Float(fb)) => Float(fa.$method(fb)),
-                            _ => { return Err(format!("{} expects int or float (got {} . {})", $kname, a, b)) }
-                        }
-                    })),
-                _ => { return Err(format!("{} expects int or float (got {} . {})", $kname, a, b)) }
-            }))
-        }
+            fn $method(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+                wrong_args_check!($kname, args, 2);
+                let a = Cc::clone(&args[0]);
+                let b = Cc::clone(&args[1]);
+                Ok(Cc::new(match (&*a, &*b) {
+                    (SExpr::Atom(Atom::Native(na)), SExpr::Atom(Atom::Native(nb)))
+                        => SExpr::Atom(Atom::Native({
+                            use NativeAtom::{Int, Float};
+                            match (na, nb) {
+                                (Int(ia),   Int(ib)  ) => Int(ia.$method(ib)),
+                                (Int(ia),   Float(fb)) => Float((*ia as f64).$method(fb)),
+                                (Float(fa), Int(ib)  ) => Float(fa.$method(*ib as f64)),
+                                (Float(fa), Float(fb)) => Float(fa.$method(fb)),
+                                _ => { return Err(format!("{} expects int or float (got {} . {})", $kname, a, b)) }
+                            }
+                        })),
+                    _ => { return Err(format!("{} expects int or float (got {} . {})", $kname, a, b)) }
+                }))
+            }
         )+
     }
 }
@@ -44,7 +44,7 @@ macro_rules! namespace {
 
 arithmetic!{ add => "+", sub => "-", mul => "*", div => "/", rem => "mod" }
 
-fn eq(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+fn cmp(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("=", args, 2);
     let a = Cc::clone(&args[0]);
     let b = Cc::clone(&args[1]);
@@ -53,15 +53,15 @@ fn eq(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
             => SExpr::Atom(Atom::Native({
                 use NativeAtom::{Int, Float, Str};
                 Int(match (na, nb) {
-                    (Int(ia),   Int(ib)  ) => ia == ib,
-                    (Int(ia),   Float(fb)) => (*ia as f64) == *fb,
-                    (Float(fa), Int(ib)  ) => *fa == (*ib as f64),
-                    (Float(fa), Float(fb)) => fa == fb,
-                    (Str(sa),   Str(sb)  ) => sa == sb,
-                    _ => { return Err(format!("= expects int, float, or string (got {} . {})", a, b)) }
-                } as i64)
+                    (Int(ia),   Int(ib)  ) => if ia < ib { -1 } else if ia > ib { 1 } else { 0 },
+                    (Int(ia),   Float(fb)) => if (*ia as f64) < *fb { -1 } else if (*ia as f64) > *fb { 1 } else { 0 },
+                    (Float(fa), Int(ib)  ) => if *fa < (*ib as f64) { -1 } else if *fa > (*ib as f64) { 1 } else { 0 },
+                    (Float(fa), Float(fb)) => if fa < fb { -1 } else if fa > fb { 1 } else { 0 },
+                    (Str(sa),   Str(sb)  ) => if sa < sb { -1 } else if sa > sb { 1 } else { 0 },
+                    _ => { return Err(format!("cmp expects int, float, or string (got {} . {})", a, b)) }
+                })
             })),
-        _ => { return Err(format!("= expects int, float, or string (got {} . {})", a, b)) }
+        _ => { return Err(format!("cmp expects int, float, or string (got {} . {})", a, b)) }
     }))
 }
 
@@ -112,8 +112,41 @@ fn len(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     Ok(Cc::new(SExpr::int(args[0].get_list().ok_or_else(|| format!("len expected list, got {}", args[0]))?.len() as i64)))
 }
 
-fn quote(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+macro_rules! type_check {
+    ($($getter:ident => $kname:expr),+) => {
+        $(
+            fn $getter(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+                wrong_args_check!($kname, args, 1);
+                Ok(Cc::new(SExpr::int(args[0].$getter().is_some() as i64)))
+            }
+        )+
+    }
+}
+
+type_check!{
+    get_int => "int?",
+    get_float => "float?",
+    get_string => "string?",
+    get_ident => "ident?",
+    get_native_fn => "native-fn?",
+    get_extern_fn => "extern-fn?",
+    get_extern_obj => "extern-obj?",
+    get_list => "list?"
+}
+
+fn make_list(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     Ok(Cc::new(SExpr::list(args)))
+}
+
+fn println_fn(args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+    for expr in args.iter() {
+        if let Some(s) = expr.get_string() {
+            println!("{}", s);
+        } else {
+            println!("{}", expr);
+        }
+    }
+    Ok(Cc::new(SExpr::null()))
 }
 
 namespace! { BUILTINS;
@@ -122,26 +155,20 @@ namespace! { BUILTINS;
     mul => "*",
     div => "/",
     rem => "mod",
-    eq => "=",
+    cmp => "cmp",
     head => "head",
     tail => "tail",
     cons => "cons",
     append => "cat",
     len => "len",
-    quote => "'"
+    make_list => "list",
+    println_fn => "print",
+    get_int => "int?",
+    get_float => "float?",
+    get_string => "string?",
+    get_ident => "ident?",
+    get_native_fn => "native-fn?",
+    get_extern_fn => "extern-fn?",
+    get_extern_obj => "extern-obj?",
+    get_list => "list?"
 }
-
-// lazy_static! {
-//     static ref BUILTINS: Namespace = {
-//         let mut module = Namespace::new();
-//         module.insert("+", SExpr::extern_fn( ExternFunction{ func: add } ));
-//         module.insert("-", SExpr::extern_fn( ExternFunction{ func: sub } ));
-//         module.insert("*", SExpr::extern_fn( ExternFunction{ func: mul } ));
-//         module.insert("/", SExpr::extern_fn( ExternFunction{ func: div } ));
-//         module.insert("mod", SExpr::extern_fn( ExternFunction{ func: rem } ));
-//         module.insert("head", SExpr::extern_fn( ExternFunction{ func: head } ));
-//         module.insert("tail", SExpr::extern_fn( ExternFunction{ func: tail } ));
-//         module.insert("'", SExpr::extern_fn( ExternFunction{ func: quote } ));
-//         module
-//     }
-// }

@@ -23,7 +23,7 @@ float = @{
 int = @{ sign? ~ uint }
 string = { squoted_ident | dquoted_string }
 
-ident_char = { !("(" | ")" | "[" | "]" | "{" | "}" | WHITESPACE) ~ ANY }
+ident_char = { !( "(" | ")" | "[" | "]" | "{" | "}" | WHITESPACE ) ~ ANY }
 ident_start_char = { !(ASCII_DIGIT) ~ ident_char }
 
 sign = { "+" | "-" }
