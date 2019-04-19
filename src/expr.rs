@@ -1,5 +1,7 @@
 use std::fmt;
 use bacon_rajan_cc::{Cc, Trace, Tracer};
+use downcast_rs::Downcast;
+use downcast_rs::impl_downcast;
 
 use crate::interpreter::Namespace;
 
@@ -111,11 +113,12 @@ impl ExternFunction {
     }
 }
 
-pub trait ExternObj: std::fmt::Debug + fmt::Display + Trace {
+pub trait ExternObj: std::fmt::Debug + Trace + Downcast {
     fn box_clone(&self) -> Box<ExternObj>;
     fn name(&self) -> String;
     fn as_bool(&self) -> bool;
 }
+impl_downcast!(ExternObj);
 
 impl Clone for Box<ExternObj> {
     fn clone(&self) -> Box<ExternObj> {
@@ -185,31 +188,6 @@ impl SExpr {
             SExpr::List(l) => !l.is_empty()
         }
     }
-
-    pub fn pprint(&self) {
-        self.pprint_rec(0);
-    }
-
-    fn pprint_rec(&self, indent: usize) {
-        if let SExpr::List(list) = self {
-            println!("{}(", "  ".repeat(indent));
-            for expr in list.iter() {
-                expr.pprint_rec(indent + 1);
-            }
-            println!("{})", "  ".repeat(indent));
-        } else if let SExpr::Atom(atom) = self {
-            println!("{}{}", "  ".repeat(indent), match atom {
-                Atom::Native(native) => match native {
-                    NativeAtom::Int(i) => format!("int {}", i),
-                    NativeAtom::Float(f) => format!("float {}", f),
-                    NativeAtom::Str(s) => format!("string {}", s),
-                    NativeAtom::Ident(id) => format!("identifier {}", id),
-                    NativeAtom::Function(_) => "function".to_owned(),
-                },
-                Atom::Extern(obj) => format!("extern atom {}", obj)
-            });
-        } else { unreachable!() }
-    }
 }
 
 impl fmt::Display for SExpr {
@@ -226,7 +204,7 @@ impl fmt::Display for SExpr {
                         Function::Extern(ef) => write!(f, "<extern function @ {:p}>", &ef.func)
                     }
                 },
-                Atom::Extern(obj) => write!(f, "<extern object `{}`>", obj)
+                Atom::Extern(obj) => write!(f, "<extern object `{:?}`>", obj)
             },
             SExpr::List(list) => {
                 let mut iter = list.iter();

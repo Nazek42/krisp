@@ -4,6 +4,8 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 extern crate lazy_static;
+#[macro_use]
+extern crate downcast_rs;
 
 mod expr;
 mod parse;

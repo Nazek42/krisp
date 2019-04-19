@@ -13,8 +13,13 @@ use crate::expr::{SExpr, Atom, NativeAtom};
 struct KrispParser;
 
 pub fn parse_source_file<S: AsRef<str>>(path: S) -> Result<Vec<SExpr>, String> {
-    let code = fs::read_to_string(path.as_ref()).map_err(|e| format!(r#"error reading file "{}": {}"#, path.as_ref(), e))?;
-    Ok(KrispParser::parse(Rule::program, &code)
+    let code = fs::read_to_string(path.as_ref())
+                .map_err(|e| format!(r#"error reading file "{}": {}"#, path.as_ref(), e))?;
+    parse_source_string(code)
+}
+
+pub fn parse_source_string<S: AsRef<str>>(code: S) -> Result<Vec<SExpr>, String> {
+    Ok(KrispParser::parse(Rule::program, code.as_ref())
         .map_err(|e| format!("syntax error: {}", e))
         ?
         .filter(|pair| if let Rule::EOI = pair.as_rule() { false } else { true })

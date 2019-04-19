@@ -27,7 +27,12 @@
 (def! cons-iter (val iter) [val (thunk iter)])
 (def! cat-iter (iter val) (chain iter (once val)))
 
-;(def! ~iter (list)
+(def! iterfy (l)
+    (if (not (list? l))
+        [l]
+        (if (< (len l) 2)
+            l
+            [(head l) (thunk (iterfy (tail l)))])))
 
 (def! once (val) [val])
 
@@ -100,3 +105,5 @@
 (def! range (a b) (take (- b a) (ints-from a)))
 
 (def! double (x) (* x 2))
+
+;;; Structs ;;;

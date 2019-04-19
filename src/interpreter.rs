@@ -82,7 +82,8 @@ fn let_macro(interpreter: &mut Interpreter, args: Vec<Cc<SExpr>>) -> Result<Cc<S
 
 fn eval_macro(interpreter: &mut Interpreter, args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("eval", args, 1);
-    Ok(interpreter.eval(Cc::clone(&args[0]))?)
+    let once = interpreter.eval(Cc::clone(&args[0]))?;
+    interpreter.eval(once)
 }
 
 fn with_macro(interpreter: &mut Interpreter, metargs: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
@@ -128,7 +129,7 @@ fn progn_macro(interpreter: &mut Interpreter, args: Vec<Cc<SExpr>>) -> Result<Cc
     Ok(result)
 }
 
-fn quote_macro(interpreter: &mut Interpreter, args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
+fn quote_macro(_interpreter: &mut Interpreter, args: Vec<Cc<SExpr>>) -> Result<Cc<SExpr>, String> {
     wrong_args_check!("'", args, 1);
     Ok(Cc::clone(&args[0]))
 }
